@@ -1,43 +1,38 @@
-const aChecker = require("accessibility-checker");
 const express = require("express");
-const axios = require("axios");
+const { spawn } = require("node:child_process");
+
+const { runAccessibilityCheck } = require("./check");
+
+async function runAsyncCheck(url) {
+  return new Promise((resolve) => {
+    const ls = spawn("node", ["run.js", url]);
+    let result = "";
+    ls.stdout.on("data", (data) => {
+      result += `${data}`;
+    });
+    ls.on("exit", (data) => {
+      resolve(result);
+    });
+  });
+}
 
 const app = express();
-const port = 3000;
+const port = 3020;
 
 app.use(express.json());
 
 // Route to check accessibility
 app.post("/check-accessibility", async (req, res) => {
-  const { url } = req.body;
-  const result = await runAccessibilityCheck(url);
-  res.status(200).json({ success: true, result });
+  try {
+    const { url } = req.body;
+    const result = JSON.parse(await runAsyncCheck(url));
+    console.log(result);
+    res.status(200).json({ success: true, result });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: e });
+  }
 });
 
 console.log("listening to ", port);
 app.listen(port);
-
-async function runAccessibilityCheck(url) {
-  console.info("run achecker");
-  const response = await aChecker.getCompliance(url, "/");
-
-  const messages = response.report.results
-    .filter((entry) => entry.message !== "Rule Passed")
-    .map((entry) => entry.message)
-    .reduce((acc, name) => {
-      if (!acc.hasOwnProperty(name)) {
-        acc[name] = 0;
-      }
-      acc[name]++;
-      return acc;
-    }, {});
-
-  var groupedMessages = Object.keys(messages)
-    .map((k) => {
-      return { name: k, count: messages[k] };
-    })
-    .sort((a, b) => (a.count > b.count ? -1 : 1));
-
-  aChecker.close();
-  return groupedMessages.map((item) => "- " + item.name);
-}

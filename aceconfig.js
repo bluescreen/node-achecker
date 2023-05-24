@@ -16,4 +16,5 @@ module.exports = {
   outputFolder: "results",
   baselineFolder: "test/baselines",
   cacheFolder: "./cache",
+  headless: true,
 };
