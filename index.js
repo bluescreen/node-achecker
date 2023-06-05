@@ -4,13 +4,19 @@ const { spawn } = require("node:child_process");
 const { runAccessibilityCheck } = require("./check");
 
 async function runAsyncCheck(url) {
-  return new Promise((resolve) => {
-    const ls = spawn("node", ["run.js", url]);
+  console.log("Check url ", url);
+
+  return new Promise((resolve, reject) => {
+    const ls = spawn("node", ["run.js", url], { timeout: 10000 });
+
+    console.log("Spawn new proccess", ls.pid);
+    console.time("p-" + ls.pid);
     let result = "";
     ls.stdout.on("data", (data) => {
       result += `${data}`;
     });
     ls.on("exit", (data) => {
+      console.timeEnd("p-" + ls.pid);
       resolve(result);
     });
   });
@@ -25,11 +31,12 @@ app.use(express.json());
 app.post("/check-accessibility", async (req, res) => {
   try {
     const { url } = req.body;
-    const result = JSON.parse(await runAsyncCheck(url));
-    console.log(result);
+    const response = await runAsyncCheck(url);
+    // console.log(JSON.stringify(response, null, 2));
+    const result = JSON.parse("'" + response + "'");
     res.status(200).json({ success: true, result });
   } catch (e) {
-    console.error(e);
+    console.error("Error", e);
     res.status(500).json({ success: false, message: e });
   }
 });
